@@ -1,4 +1,4 @@
-const { register, logIn, logOut, openRealm, /* closeRealm,*/ } = require('./realm-auth');
+const { register, logIn, logOut, openRealm } = require('./realm-auth');
 const { addDummyData, updateDummyData, deleteDummyData, getStore } = require('./realm-query');
 
 const exampleEmail = 'john@doe.com';
@@ -22,7 +22,7 @@ async function main() {
   addDummyData();
   updateDummyData();
 
-  // Temporary for debugging
+  // Print a kiosk and its products.
   const store = getStore();
   const firstKiosk = store?.kiosks[0];
   if (firstKiosk) {

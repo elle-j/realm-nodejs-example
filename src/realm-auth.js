@@ -11,6 +11,7 @@ const { logger } = require('./logger');
 
 const app = getAtlasApp();
 let currentUser = null;
+let originalAccessToken = null;
 let realm = null;
 
 // Exported for use by `./realm-query.js`
@@ -18,10 +19,26 @@ function getRealm() {
   return realm;
 }
 
+function resetUser() {
+  currentUser?.removeAllListeners();
+  currentUser = null;
+  originalAccessToken = null;
+}
+
 // The user listener will be invoked on various user related events including
 // refresh of auth token, refresh token, custom user data, and logout.
 function handleUserEventChange() {
   if (currentUser) {
+    // Currently we don't provide any arguments to this callback but we have opened
+    // a ticket for this (see https://github.com/realm/realm-core/issues/6454). To
+    // detect that a token has been refreshed (which can also be manually triggered
+    // by `await user.refreshCustomData()`), the original access token can be saved
+    // to a variable and compared against the current one.
+    if (originalAccessToken !== currentUser.accessToken) {
+      logger.info("Refreshed access token.");
+      originalAccessToken = currentUser.accessToken;
+    }
+
     switch (currentUser.state) {
       // case UserState.Active:       // Bug to be fixed: `UserState` is undefined.
       case 'Active':                  // Bug to be fixed: Literal is documented as 'active'
@@ -30,14 +47,12 @@ function handleUserEventChange() {
       // case UserState.LoggedOut:
       case 'LoggedOut':               // Bug to be fixed: Literal is documented as 'logged-out'
         logger.info(`User (id: ${currentUser.id}) has been logged out.`);
-        currentUser.removeAllListeners();
-        currentUser = null;
+        resetUser();
         break;
       // case UserState.Removed:
       case 'Removed':                 // Bug to be fixed: Literal is documented as 'removed'
         logger.info(`User (id: ${currentUser.id}) has been removed from the app.`);
-        currentUser.removeAllListeners();
-        currentUser = null;
+        resetUser();
         break;
       default:
         // Should not be reachable.
@@ -67,8 +82,8 @@ function handleConnectionChange(newState, oldState) {
     //    (1) oldState: ConnectionState.Disconnected, newState: ConnectionState.Connecting
     //    (2) oldState: ConnectionState.Connecting, newState: ConnectionState.Disconnected
 
-    // Calling `App.Sync.reconnect()` is not needed due to automatic retries. If used elsewhere,
-    // however, `app` should be passed as the argument, not the realm instance.
+    // Calling `App.Sync.reconnect()` is not needed due to automatic retries. If used
+    // elsewhere, however, `app` should be passed as the argument, not the realm instance.
 
     // Be aware of that there may be a delay from the time of actual disconnect until this
     // listener is invoked.
@@ -91,6 +106,11 @@ function handleSyncError(session, error) {
   else {
     logger.error(`Unexpected error code: ${error.code}.`);
   }
+
+  // Regarding manual client resets. The deprecated `Realm.App.Sync.initiateClientReset`
+  // is meant for use only when the `clientReset` property on the sync configuration
+  // is set to `ClientResetMode.Manual` and should not be needed when using
+  // `ClientResetMode.DiscardUnsyncedChanges`.
 }
 
 function handlePreClientReset(localRealm) {
@@ -143,6 +163,7 @@ async function logIn(email, password) {
     // The credentials here can be substituted using a JWT or another preferred method.
     logger.info('Logging in...');
     currentUser = await app.logIn(Realm.Credentials.emailPassword(email, password));
+    originalAccessToken = currentUser.accessToken;
     logger.info('Logged in.');
     currentUser.addListener(handleUserEventChange);
     return true;
