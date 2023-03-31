@@ -7,17 +7,17 @@ const { SYNC_STORE_ID } = require('./atlas-app-services/config');
 const { getRealm } = require('./realm-auth');
 
 function getStore() {
-  return getRealm()?.objects(StoreSchema.name).filtered('_id == $0', SYNC_STORE_ID)[0];
+  return getRealm()?.objects(StoreSchema.name).filtered('_id = $0', SYNC_STORE_ID)[0];
 }
 
 function getKiosks() {
   const realm = getRealm();
-  return realm ? realm.objects(KioskSchema.name).filtered('storeId == $0', SYNC_STORE_ID) : [];
+  return realm ? realm.objects(KioskSchema.name).filtered('storeId = $0', SYNC_STORE_ID) : [];
 }
 
 function getProducts() {
   const realm = getRealm();
-  return realm ? realm.objects(ProductSchema.name).filtered('storeId == $0', SYNC_STORE_ID) : [];
+  return realm ? realm.objects(ProductSchema.name).filtered('storeId = $0', SYNC_STORE_ID) : [];
 }
 
 function addProducts() {

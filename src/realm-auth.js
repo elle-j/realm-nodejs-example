@@ -1,3 +1,4 @@
+const process = require('node:process');
 const Realm = require('realm');
 const { ClientResetMode, ConnectionState, UserState } = require('realm');
 
@@ -19,28 +20,27 @@ function getRealm() {
 
 // The user listener will be invoked on various user related events including
 // refresh of auth token, refresh token, custom user data, and logout.
-function handleUserChange() {
+function handleUserEventChange() {
   if (currentUser) {
     switch (currentUser.state) {
-      // case UserState.Active: // `UserState` seems to be undefined, even on `Realm.UserState`.
-      case 'Active': // But our types says it should be 'active'
+      // case UserState.Active:       // Bug to be fixed: `UserState` is undefined.
+      case 'Active':                  // Bug to be fixed: Literal is documented as 'active'
         logger.info(`User (id: ${currentUser.id}) has been authenticated.`);
         break;
       // case UserState.LoggedOut:
-      case 'LoggedOut': // But our types says it should be 'logged-out'
+      case 'LoggedOut':               // Bug to be fixed: Literal is documented as 'logged-out'
         logger.info(`User (id: ${currentUser.id}) has been logged out.`);
         currentUser.removeAllListeners();
         currentUser = null;
         break;
       // case UserState.Removed:
-      case 'Removed': // But our types says it should be it should be 'removed'
+      case 'Removed':                 // Bug to be fixed: Literal is documented as 'removed'
         logger.info(`User (id: ${currentUser.id}) has been removed from the app.`);
-        currentUser.removeAllListeners(); // TODO: Is this needed?
+        currentUser.removeAllListeners();
         currentUser = null;
         break;
-      // Temporary for debugging
       default:
-        logger.error(`Unexpected user state for user (id: ${currentUser.id}): ${currentUser.state}`);
+        // Should not be reachable.
         break;
     }
   }
@@ -67,18 +67,17 @@ function handleConnectionChange(newState, oldState) {
     //    (1) oldState: ConnectionState.Disconnected, newState: ConnectionState.Connecting
     //    (2) oldState: ConnectionState.Connecting, newState: ConnectionState.Disconnected
 
-    // ADDRESS:
-    // Wawa used `App.Sync.reconnect()` but it does not seem to be needed due to automatic
-    // retries. If used, however, they should pass `app` as the argument, not the realm.
-    // They used the `reconnect()` if sync session state was not `SessionState.Active`.
+    // Calling `App.Sync.reconnect()` is not needed due to automatic retries. If used elsewhere,
+    // however, `app` should be passed as the argument, not the realm instance.
+
+    // Be aware of that there may be a delay from the time of actual disconnect until this
+    // listener is invoked.
   } else /* failedReconnecting */ {
     logger.info(`Failed to reconnect.`);
   }
 }
 
 function handleSyncError(session, error) {
-  // TODO: Suggestions on how to differentiate between errors.
-
   // For error codes see: https://github.com/realm/realm-core/blob/master/doc/protocol.md#error-codes
   // * Examples:
   //   * 100 (Connection closed, no error)
@@ -88,9 +87,9 @@ function handleSyncError(session, error) {
   } else if (error.code >= 200 || error.code < 300) {
     logger.error(`Session level error: ${error.message}.\n\t- ${{ error }}`);
   }
-  // Temprary for debugging
+  // Should not be reachable.
   else {
-    logger.error(`SYNC ERROR CALLBACK. Expected error codes in level 100 and 200, got: ${error.code}.`);
+    logger.error(`Unexpected error code: ${error.code}.`);
   }
 }
 
@@ -120,8 +119,6 @@ async function register(email, password) {
     if (err.message.includes('name already in use')) {
       logger.info('Already registered.');
       return true;
-
-      // Note to team: `err.code` returns the string 'AccountNameInUse' (our type says it should be a number)
     }
     logger.error(`Error registering: ${err.message}`);
     return false;
@@ -134,6 +131,10 @@ async function logIn(email, password) {
   // required if requests are sent outside of the SDK. If that's the case, see:
   // https://www.mongodb.com/docs/realm/sdk/node/examples/authenticate-users/#get-a-user-access-token
 
+  // By default, refresh tokens expire 60 days after they are issued. You can configure this
+  // time for your App's refresh tokens to be anywhere between 30 minutes and 180 days. See:
+  // https://www.mongodb.com/docs/atlas/app-services/users/sessions/#configure-refresh-token-expiration
+
   if (currentUser) {
     return currentUser;
   }
@@ -143,7 +144,7 @@ async function logIn(email, password) {
     logger.info('Logging in...');
     currentUser = await app.logIn(Realm.Credentials.emailPassword(email, password));
     logger.info('Logged in.');
-    currentUser.addListener(handleUserChange);
+    currentUser.addListener(handleUserEventChange);
     return true;
   } catch (err) {
     logger.error(`Error logging in: ${err.message}`);
@@ -155,6 +156,8 @@ async function logOut() {
   if (currentUser) {
     logger.info('Logging out...');
     await currentUser.logOut();
+
+    // The `currentUser` variable is being set to `null` in the user listener.
   }
 }
 
@@ -168,54 +171,78 @@ async function openRealm() {
         // https://www.mongodb.com/docs/realm/sdk/node/examples/flexible-sync/
         flexible: true,
         initialSubscriptions: {
+          // When adding subscriptions, best practice is to name each subscription
+          // for better managing removal of them.
           update: (mutableSubs, realm) => {
             // Subscribe to the store with the given ID.
             mutableSubs.add(
-              realm.objects(StoreSchema.name).filtered('_id == $0', SYNC_STORE_ID), // TODO: Some examples use '==', others use '='
+              realm.objects(StoreSchema.name).filtered('_id = $0', SYNC_STORE_ID),
               { name: 'storeA' },
             );
             // Subscribe to all kiosks in the store with the given ID.
             mutableSubs.add(
-              realm.objects(KioskSchema.name).filtered('storeId == $0', SYNC_STORE_ID),
+              realm.objects(KioskSchema.name).filtered('storeId = $0', SYNC_STORE_ID),
               { name: 'kiosksInStoreA' },
             );
             // Subscribe to all products in the store with the given ID.
             mutableSubs.add(
-              realm.objects(ProductSchema.name).filtered('storeId == $0', SYNC_STORE_ID),
+              realm.objects(ProductSchema.name).filtered('storeId = $0', SYNC_STORE_ID),
               { name: 'productsInStoreA' },
             );
           },
         },
         clientReset: {
-          mode: ClientResetMode.RecoverOrDiscardUnsyncedChanges, // TODO: Preferred mode? Wawa used `DiscardUnsyncedChanges`
+          // For read-only clients, `ClientResetMode.DiscardUnsyncedChanges` is suitable.
+          mode: ClientResetMode.DiscardUnsyncedChanges,
           onBefore: handlePreClientReset,
           onAfter: handlePostClientReset,
+
+          // If also writing to the realm, `ClientResetMode.RecoverOrDiscardUnsyncedChanges`
+          // is suitable (e.g. when running this example app). In this case, it is possible
+          // to listen on more events (v11 and v12 types differ slightly):
+          // interface ClientResetRecoveryOrDiscardConfiguration {
+          //   mode: ClientResetMode.RecoverOrDiscardUnsyncedChanges;
+          //   onBefore?: ClientResetBeforeCallback;
+          //   onRecovery?: ClientResetAfterCallback;
+          //   onDiscard?: ClientResetAfterCallback;
+          //   onFallback?: ClientResetFallbackCallback;
+          // }
         },
-        onError: handleSyncError, // NOTE: Wawa used `error`
+        // The old property for the error callback was called `error`, please use `onError`.
+        onError: handleSyncError,
       },
     };
     logger.info('Opening realm...');
     realm = await Realm.open(config);
     logger.info('Realm opened.');
-    realm.syncSession?.addConnectionNotification(handleConnectionChange); // TODO: Does this listener have to be explicitly removed?
-    realm.objects(ProductSchema.name).filtered('storeId == $0', SYNC_STORE_ID).addListener(handleProductsChange);
+    
+    // Explicitly removing the connection listener is not needed if you intend for it
+    // to live throughout the session.
+    realm.syncSession?.addConnectionNotification(handleConnectionChange);
+
+    realm.objects(ProductSchema.name).filtered('storeId = $0', SYNC_STORE_ID).addListener(handleProductsChange);
   } catch (err) {
     logger.error(`Error opening the realm: ${err.message}`);
     throw err;
   }
 }
 
-/*async*/ function closeRealm() {
-  // TODO: Verify if `!realm.isClosed` is needed.
+function closeRealm() {
   if (realm && !realm.isClosed) {
     logger.info('Closing the realm...');
-    // await realm.syncSession?.uploadAllLocalChanges(); // TODO: Verify this (not available in v11?)
-    realm.removeAllListeners();
     realm.close();
     realm = null;
     logger.info('Realm closed.');
   }
 }
+
+function handleExit(code) {
+  closeRealm();
+  logger.info(`Exiting with code ${code}...`);
+}
+
+process.on('exit', handleExit);
+process.on('SIGINT', process.exit);
 
 module.exports = {
   register,
@@ -228,6 +255,10 @@ module.exports = {
 
 // MISCELLANEOUS NOTES:
 // * Convenience method to check if connected: `app.syncSession?.isConnected()`
-// * See more information on error handling: https://www.mongodb.com/docs/atlas/app-services/sync/error-handling/
 // * Get user's access token: `user.accessToken`
 // * Get user's refresh token: `user.refreshToken`
+// * See more information on error handling: https://www.mongodb.com/docs/atlas/app-services/sync/error-handling/
+// * Removing the local database (directory: mongodb-realm/) can be useful for certain errors.
+//   * For this example app, the helper command `npm run rmLocalDb` is provided.
+// * CommonJS (CJS) vs. ECMAScript modules (ESM)
+//   * We recommend converting to ESM by first adding `type: "module"` in `package.json`.
