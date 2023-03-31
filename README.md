@@ -14,7 +14,7 @@ A skeleton app to be used as a reference for how to use the [Realm Node.js SDK](
 │   │   ├── Product.js
 │   │   ├── Store.js
 │   ├── index.js            (Entry point)
-│   ├── logger.js           (Replacable logger)
+│   ├── logger.js           (Replaceable logger)
 │   ├── realm-auth.js       (Main Realm usage examples)
 │   └── realm-query.js      (Data manipulation helper)
 └── other..

@@ -1,4 +1,4 @@
-// This is meant to be replaced with a preferred logging implemention.
+// This is meant to be replaced with a preferred logging implementation.
 exports.logger = {
   info(message) {
     console.info(new Date().toLocaleString(), '|', message);
