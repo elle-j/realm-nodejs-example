@@ -97,14 +97,14 @@ function handleSyncError(session, error) {
   // * Examples:
   //   * 100 (Connection closed, no error)
   //   * 202 (Access token expired)
-  if (error.code >= 100 || error.code < 200) {
-    logger.error(`Connection level and protocol error: ${error.message}.\n\t- ${{ error }}`);
-  } else if (error.code >= 200 || error.code < 300) {
-    logger.error(`Session level error: ${error.message}.\n\t- ${{ error }}`);
+  if (error.code >= 100 && error.code < 200) {
+    logger.error(`Connection level and protocol error: ${error.message}. ${JSON.stringify(error)}`);
+  } else if (error.code >= 200 && error.code < 300) {
+    logger.error(`Session level error: ${error.message}. ${JSON.stringify(error)}`);
   }
   // Should not be reachable.
   else {
-    logger.error(`Unexpected error code: ${error.code}.`);
+    logger.error(`Unexpected error code: ${error.code}. ${JSON.stringify(error)}`);
   }
 
   // Regarding manual client resets. The deprecated `Realm.App.Sync.initiateClientReset`
@@ -252,9 +252,9 @@ function closeRealm() {
   if (realm && !realm.isClosed) {
     logger.info('Closing the realm...');
     realm.close();
-    realm = null;
     logger.info('Realm closed.');
   }
+  realm = null;
 }
 
 function handleExit(code) {
@@ -270,11 +270,11 @@ module.exports = {
   logIn,
   logOut,
   openRealm,
-  closeRealm,
   getRealm,
 };
 
 // MISCELLANEOUS NOTES:
+// --------------------
 // * Convenience method to check if connected: `app.syncSession?.isConnected()`
 // * Get user's access token: `user.accessToken`
 // * Get user's refresh token: `user.refreshToken`
@@ -282,4 +282,4 @@ module.exports = {
 // * Removing the local database (directory: mongodb-realm/) can be useful for certain errors.
 //   * For this example app, the helper command `npm run rmLocalDb` is provided.
 // * CommonJS (CJS) vs. ECMAScript modules (ESM)
-//   * We recommend converting to ESM by first adding `type: "module"` in `package.json`.
+//   * We recommend converting to ESM by first adding `"type": "module"` in `package.json`.
