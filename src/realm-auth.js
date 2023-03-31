@@ -19,7 +19,7 @@ function getRealm() {
 
 // The user listener will be invoked on various user related events including
 // refresh of auth token, refresh token, custom user data, and logout.
-function handleUserChange() {
+function handleUserChange() { //Maybe this could be called handleUserStateChange? From the name I thought this was going to be invoked when the current user was changing to another one
   if (currentUser) {
     switch (currentUser.state) {
       // case UserState.Active: // `UserState` seems to be undefined, even on `Realm.UserState`.
@@ -155,6 +155,7 @@ async function logOut() {
   if (currentUser) {
     logger.info('Logging out...');
     await currentUser.logOut();
+    //Shouldn't you also do currentUser = null or something similar here?
   }
 }
 

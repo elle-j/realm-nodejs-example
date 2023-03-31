@@ -1,5 +1,5 @@
 // Current information and inventory about a type of product in a particular store.
-// (This is simplied to refer to a complete product (e.g. a sandwhich, rather than
+// (This is simplified to refer to a complete product (e.g. a sandwich, rather than
 // e.g. bread, cheese, lettuce, etc.)
 exports.ProductSchema = {
   name: 'Product',
