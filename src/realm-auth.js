@@ -41,16 +41,16 @@ function handleUserEventChange() {
 
     switch (currentUser.state) {
       // case UserState.Active:       // Bug to be fixed: `UserState` is undefined.
-      case 'Active':                  // Bug to be fixed: Literal is documented as 'active'
+      case 'LoggedIn':                // Bug to be fixed: Actual value is 'LoggedIn' but type is documented as 'active'
         logger.info(`User (id: ${currentUser.id}) has been authenticated.`);
         break;
       // case UserState.LoggedOut:
-      case 'LoggedOut':               // Bug to be fixed: Literal is documented as 'logged-out'
+      case 'LoggedOut':               // Bug to be fixed: Actual value is 'LoggedOut' but type is documented as 'logged-out'
         logger.info(`User (id: ${currentUser.id}) has been logged out.`);
         resetUser();
         break;
       // case UserState.Removed:
-      case 'Removed':                 // Bug to be fixed: Literal is documented as 'removed'
+      case 'Removed':                 // Bug to be fixed: Actual value is 'Removed' but type is documented as 'removed'
         logger.info(`User (id: ${currentUser.id}) has been removed from the app.`);
         resetUser();
         break;
@@ -101,19 +101,20 @@ function handleSyncError(session, error) {
     logger.error(`Connection level and protocol error: ${error.message}. ${JSON.stringify(error)}`);
   } else if (error.code >= 200 && error.code < 300) {
     logger.error(`Session level error: ${error.message}. ${JSON.stringify(error)}`);
-  }
-  // Should not be reachable.
-  else {
+  } else {
+    // Should not be reachable.
     logger.error(`Unexpected error code: ${error.code}. ${JSON.stringify(error)}`);
   }
 
-  // Regarding manual client resets. The deprecated `Realm.App.Sync.initiateClientReset`
-  // is meant for use only when the `clientReset` property on the sync configuration
-  // is set to `ClientResetMode.Manual` and should not be needed when using
+  // Regarding manual client resets. The deprecated `Realm.App.Sync.initiateClientReset()`
+  // is meant for use only when the `clientReset` property on the sync configuration is
+  // set to `ClientResetMode.Manual` and should not be needed when using
   // `ClientResetMode.DiscardUnsyncedChanges`.
 }
 
 function handlePreClientReset(localRealm) {
+  // To read more about manual client reset data recovery, see:
+  // https://www.mongodb.com/docs/realm/sdk/node/advanced/client-reset-data-recovery/
   logger.info(`Initiating client reset...`);
 }
 
@@ -123,12 +124,14 @@ function handlePostClientReset(localRealm, remoteRealm) {
 
 // The collection listener will be invoked when the listener is added and
 // whenever an object in the collection is deleted, inserted, or modified.
+// (Always handle potential deletions first.)
 function handleProductsChange(products, changes) {
   logger.info('Products changed.');
 }
 
 async function register(email, password) {
-  // For this simplified example, the app is configured to automatically confirm users.
+  // For this simplified example, the app is configured via the Atlas App Services UI
+  // to automatically confirm users' emails.
   try {
     logger.info('Registering...');
     await app.emailPasswordAuth.registerUser({ email, password });
