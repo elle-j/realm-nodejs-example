@@ -1,9 +1,9 @@
 // This is meant to be replaced with a preferred logging implementation.
-exports.logger = {
-  info(message) {
+export class Logger {
+  static info(message: string) {
     console.info(new Date().toLocaleString(), '|', message);
-  },
-  error(message) {
+  }
+  static error(message: string) {
     console.error(new Date().toLocaleString(), '|', message);
-  },
-};
+  }
+}
