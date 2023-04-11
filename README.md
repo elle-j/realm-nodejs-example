@@ -6,22 +6,25 @@ A skeleton app to be used as a reference for how to use the [Realm Node.js SDK](
 
 ```
 ├── src
-│   ├── atlas-app-services  (Configure Atlas App)
-│   │   ├── config.js
-│   │   ├── getAtlasApp.js
-│   ├── models              (Simplified data model)
-│   │   ├── Kiosk.js
-│   │   ├── Product.js
-│   │   ├── Store.js
-│   ├── index.js            (Entry point)
-│   ├── logger.js           (Replaceable logger)
-│   ├── realm-auth.js       (Main Realm usage examples)
-│   └── realm-query.js      (Data manipulation helper)
+│   ├── atlas-app-services   (Configure Atlas App)
+│   │   ├── config.ts
+│   │   ├── getAtlasApp.ts
+│   ├── models               (Simplified data model)
+│   │   ├── Kiosk.ts
+│   │   ├── Product.ts
+│   │   ├── Store.ts
+│   │   ├── index.ts
+│   ├── index.ts             (Entry point)
+│   ├── logger.ts            (Replaceable logger)
+│   ├── realm-connection.ts  (Main Realm usage examples)
+│   └── realm-query.ts       (Data manipulation helper)
+│   └── realm-mock.ts        (Seed Dummy data in db)
+
 └── other..
 ```
 
 Main file for showcasing Realm usage:
-* `src/realm-auth.js`
+* `src/realm-auth.ts`
 
 ## Scope
 
@@ -71,7 +74,7 @@ npm i
 ### Run the Node.js code
 
 1. Copy your [Atlas App ID](https://www.mongodb.com/docs/atlas/app-services/reference/find-your-project-or-app-id/#std-label-find-your-app-id) from the App Services UI.
-2. Paste the copied ID as the value of the existing variable `ATLAS_APP_ID` in `src/atlas-app-services/config.js`:
+2. Paste the copied ID as the value of the existing variable `ATLAS_APP_ID` in `src/atlas-app-services/config.ts`:
 ```js
 exports.ATLAS_APP_ID = 'YOUR_APP_ID';
 ```
