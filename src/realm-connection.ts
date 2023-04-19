@@ -1,11 +1,12 @@
 import Realm, { App, ClientResetMode, Collection, CollectionChangeSet, ConnectionState } from 'realm';
 import { SYNC_STORE_ID } from './atlas-app-services/config';
 import { AtlasApp } from './atlas-app-services/getAtlasApp';
+import { getAccessToken } from './auth0.provider';
 import { Logger } from './logger';
 import { KioskSchema, ProductSchema, StoreSchema } from './models';
 
 let app: Realm.App = new AtlasApp().app;
-let currentUser: Realm.User;
+let currentUser: Realm.User | null;
 let originalAccessToken: string | null = null;
 let realm: Realm | null;
 
@@ -46,7 +47,7 @@ const handleConnectionChange = (newState: ConnectionState, oldState: ConnectionS
   }
 };
 
-const handleSyncError = (session: App.Sync.Session, error: any) => {
+const handleSyncError = async (session: App.Sync.Session, error: any) => {
   Logger.info(`Session: state ${session.state}`);
   // For error codes see: https://github.com/realm/realm-core/blob/master/doc/protocol.md#error-codes
   // * Examples:
@@ -56,6 +57,7 @@ const handleSyncError = (session: App.Sync.Session, error: any) => {
     Logger.error(`Connection level and protocol error: ${error.message}. ${JSON.stringify(error)}`);
   } else if (error.code >= 200 && error.code < 300) {
     Logger.error(`Session level error: ${error.message}. ${JSON.stringify(error)}`);
+    await reOpenRealm();
   }
   // Should not be reachable.
   else {
@@ -66,6 +68,21 @@ const handleSyncError = (session: App.Sync.Session, error: any) => {
   // is set to `ClientResetMode.Manual` and should not be needed when using
   // `ClientResetMode.DiscardUnsyncedChanges`.
 };
+
+const reOpenRealm = async () => {
+  currentUser?.removeAllListeners();
+  currentUser = null;
+  realm = null;
+  originalAccessToken = null;
+  const accessToken: string = await getAccessToken();
+
+  let success: Realm.User | boolean = await logIn(accessToken);
+  if (!success) {
+    return;
+  }
+
+  await openRealm();
+}
 
 const handlePreClientReset = (localRealm: Realm) => {
   Logger.info(`localRealm: ${localRealm}`);
@@ -82,6 +99,8 @@ const handlePostClientReset = (localRealm: Realm, remoteRealm: Realm) => {
 // whenever an object in the collection is deleted, inserted, or modified.
 const handleProductsChange = (products: Collection<object>, changes: CollectionChangeSet) => {
   Logger.info(`Changes. ${JSON.stringify(changes)}`);
+  Logger.info(`Token. ${currentUser?.accessToken}--${currentUser?.refreshToken}`);
+
   Logger.info(`Products changed. ${JSON.stringify(products)}`);
 };
 
@@ -90,7 +109,7 @@ export const openRealm = async () => {
     const config: Realm.Configuration = {
       schema: [StoreSchema, KioskSchema, ProductSchema],
       sync: {
-        user: currentUser,
+        user: currentUser as Realm.User,
 
         // To read more about flexible sync and subscriptions, see:
         // https://www.mongodb.com/docs/realm/sdk/node/examples/flexible-sync/
@@ -129,13 +148,14 @@ export const openRealm = async () => {
       },
     };
     Logger.info('Opening realm...');
-    realm = await Realm.open(config);
+    realm = new Realm(config);
     Logger.info('Realm opened.');
 
     // Explicitly removing the connection listener is not needed if you intend for it
     // to live throughout the session.
-    realm.syncSession?.addConnectionNotification(handleConnectionChange);
-
+    if (realm?.syncSession?.isConnected()) {
+      realm.syncSession?.addConnectionNotification(handleConnectionChange);
+    }
     realm.objects(ProductSchema.name).filtered('storeId = $0', SYNC_STORE_ID).addListener(handleProductsChange);
   } catch (error: unknown) {
     if (error instanceof Error) {
@@ -156,12 +176,12 @@ export const closeRealm = () => {
 
 export const resetUser = () => {
   currentUser?.removeAllListeners();
-  currentUser.logOut();
+  currentUser = null;
   originalAccessToken = null;
 };
 
 export const getCurrentUser = (): Realm.User => {
-  return currentUser;
+  return currentUser!;
 };
 
 // The user listener will be invoked on various user related events including
@@ -220,7 +240,7 @@ export const register = async (email: string, password: string): Promise<boolean
   }
 };
 
-export const logIn = async (email: string, password: string): Promise<Realm.User | boolean> => {
+export const logIn = async (accessToken: string): Promise<Realm.User | boolean> => {
   // Access tokens are created once a user logs in. These tokens are refreshed
   // automatically by the SDK when needed. Manually refreshing the token is only
   // required if requests are sent outside of the SDK. If that's the case, see:
@@ -229,7 +249,6 @@ export const logIn = async (email: string, password: string): Promise<Realm.User
   // By default, refresh tokens expire 60 days after they are issued. You can configure this
   // time for your App's refresh tokens to be anywhere between 30 minutes and 180 days. See:
   // https://www.mongodb.com/docs/atlas/app-services/users/sessions/#configure-refresh-token-expiration
-
   if (currentUser) {
     return currentUser;
   }
@@ -237,7 +256,8 @@ export const logIn = async (email: string, password: string): Promise<Realm.User
   try {
     // The credentials here can be substituted using a JWT or another preferred method.
     Logger.info('Logging in...');
-    currentUser = await app.logIn(Realm.Credentials.emailPassword(email, password));
+    const credentials: Realm.Credentials = Realm.Credentials.jwt(accessToken);
+    currentUser = await app.logIn(credentials);
     originalAccessToken = currentUser.accessToken;
     Logger.info('Logged in.');
     currentUser.addListener(handleUserEventChange);

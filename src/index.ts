@@ -1,9 +1,7 @@
-import { logIn, openRealm, register } from './realm-connection';
+import { getAccessToken } from './auth0.provider';
+import { logIn, openRealm } from './realm-connection';
 import { RealmQuery } from './realm-query';
 import { RealmMock } from './realm.mock';
-
-const exampleEmail = 'john@doe.com';
-const examplePassword = '123456';
 
 export class Main {
   realmQuery: RealmQuery;
@@ -15,12 +13,10 @@ export class Main {
   }
 
   public main = async () => {
-    let success: Realm.User | boolean = await register(exampleEmail, examplePassword);
-    if (!success) {
-      return;
-    }
 
-    success = await logIn(exampleEmail, examplePassword);
+    const accessToken = await getAccessToken();
+
+    let success: Realm.User | boolean = await logIn(accessToken);
     if (!success) {
       return;
     }
