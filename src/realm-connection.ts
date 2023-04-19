@@ -57,6 +57,14 @@ const handleSyncError = async (session: App.Sync.Session, error: any) => {
     Logger.error(`Connection level and protocol error: ${error.message}. ${JSON.stringify(error)}`);
   } else if (error.code >= 200 && error.code < 300) {
     Logger.error(`Session level error: ${error.message}. ${JSON.stringify(error)}`);
+    /*  
+        Refresh token can be updated for a maximum expiration time period of around 180days. Refer below
+        https://www.mongodb.com/docs/atlas/app-services/users/sessions/#configure-refresh-token-expiration
+        Even if the application is reopened after 180days(Assuming 180days is updated
+        in configuration in realm app services) this reOpenRealm() method will try to relogin to
+        application again and open the realm connection without any issues
+     */
+    Logger.info(`Reopeing realm as the access and refresh tokwn is expired`);
     await reOpenRealm();
   }
   // Should not be reachable.
@@ -70,6 +78,7 @@ const handleSyncError = async (session: App.Sync.Session, error: any) => {
 };
 
 const reOpenRealm = async () => {
+  //Making sure all the listeners and current user is cleared before reopening the realm
   currentUser?.removeAllListeners();
   currentUser = null;
   realm = null;
