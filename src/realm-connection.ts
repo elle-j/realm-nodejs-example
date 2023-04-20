@@ -209,16 +209,19 @@ const handleUserEventChange = () => {
 
     switch (currentUser.state) {
       // case UserState.Active:       // Bug to be fixed: `UserState` is undefined.
-      case 'active': // Bug to be fixed: Literal is documented as 'active'
+      // @ts-expect-error
+      case "LoggedIn": // Bug to be fixed: Literal is documented as 'active'
         Logger.info(`User (id: ${currentUser.id}) has been authenticated.`);
         break;
       // case UserState.LoggedOut:
-      case 'logged-out': // Bug to be fixed: Literal is documented as 'logged-out'
+      // @ts-expect-error
+      case 'LoggedOut': // Bug to be fixed: Literal is documented as 'logged-out'
         Logger.info(`User (id: ${currentUser.id}) has been logged out.`);
         resetUser();
         break;
       // case UserState.Removed:
-      case 'removed': // Bug to be fixed: Literal is documented as 'removed'
+      // @ts-expect-error
+      case 'Removed': // Bug to be fixed: Literal is documented as 'removed'
         Logger.info(`User (id: ${currentUser.id}) has been removed from the app.`);
         resetUser();
         break;
