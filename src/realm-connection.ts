@@ -9,6 +9,7 @@ let app: Realm.App = new AtlasApp().app;
 let currentUser: Realm.User | null;
 let originalAccessToken: string | null = null;
 let realm: Realm | null;
+let connectionNotificationAdded = false;
 
 // Exported for use by `./realm-query.js`
 export const getRealm = (): Realm => {
@@ -22,14 +23,13 @@ const handleConnectionChange = (newState: ConnectionState, oldState: ConnectionS
   const connected = newState === ConnectionState.Connected;
   const disconnected = oldState === ConnectionState.Connected && newState === ConnectionState.Disconnected;
   const failedReconnecting = oldState === ConnectionState.Connecting && newState === ConnectionState.Disconnected;
-  Logger.info(`failedReconnecting: ${failedReconnecting}`);
 
   if (connecting) {
-    Logger.info(`Connecting...`);
+    Logger.info(` User ID: ${currentUser?.id} & Device ID: ${currentUser?.deviceId} is Connecting...`);
   } else if (connected) {
-    Logger.info(`Connected.`);
+    Logger.info(` User ID: ${currentUser?.id} & Device ID: ${currentUser?.deviceId} is Connected.`);
   } else if (disconnected) {
-    Logger.info(`Disconnected.`);
+    Logger.info(` User ID: ${currentUser?.id} & Device ID: ${currentUser?.deviceId} is Disconnected.`);
 
     // Currently, the `newState` is `ConnectionState.Disconnected`. Automatic retries will
     // start and the state will alternate in the following way for the period where there
@@ -42,8 +42,9 @@ const handleConnectionChange = (newState: ConnectionState, oldState: ConnectionS
 
     // Be aware of that there may be a delay from the time of actual disconnect until this
     // listener is invoked.
-  } /* failedReconnecting */ else {
-    Logger.info(`Failed to reconnect.`);
+  } /* failedReconnecting */
+  else {
+    Logger.info(` User ID: ${currentUser?.id} & Device ID: ${currentUser?.deviceId} failed to Reconnect(${failedReconnecting})`);
   }
 };
 
@@ -64,7 +65,7 @@ const handleSyncError = async (session: App.Sync.Session, error: any) => {
         in configuration in realm app services) this reOpenRealm() method will try to relogin to
         application again and open the realm connection without any issues
      */
-    Logger.info(`Reopeing realm as the access and refresh tokwn is expired`);
+    Logger.info(`Reopeing realm as the access and refresh token is expired`);
     await reOpenRealm();
   }
   // Should not be reachable.
@@ -108,8 +109,6 @@ const handlePostClientReset = (localRealm: Realm, remoteRealm: Realm) => {
 // whenever an object in the collection is deleted, inserted, or modified.
 const handleProductsChange = (products: Collection<object>, changes: CollectionChangeSet) => {
   Logger.info(`Changes. ${JSON.stringify(changes)}`);
-  Logger.info(`Token. ${currentUser?.accessToken}--${currentUser?.refreshToken}`);
-
   Logger.info(`Products changed. ${JSON.stringify(products)}`);
 };
 
@@ -117,9 +116,13 @@ export const openRealm = async () => {
   try {
     const config: Realm.Configuration = {
       schema: [StoreSchema, KioskSchema, ProductSchema],
+      shouldCompact(totalBytes: number, usedBytes: number) {
+        Logger.info(`Total Bytes: ${totalBytes}`);
+        Logger.info(`Used Bytes: ${usedBytes}`);
+        return true;
+      },
       sync: {
         user: currentUser as Realm.User,
-
         // To read more about flexible sync and subscriptions, see:
         // https://www.mongodb.com/docs/realm/sdk/node/examples/flexible-sync/
         flexible: true,
@@ -162,8 +165,9 @@ export const openRealm = async () => {
 
     // Explicitly removing the connection listener is not needed if you intend for it
     // to live throughout the session.
-    if (realm?.syncSession?.isConnected()) {
+    if (!connectionNotificationAdded) {
       realm.syncSession?.addConnectionNotification(handleConnectionChange);
+      connectionNotificationAdded = true;
     }
     realm.objects(ProductSchema.name).filtered('storeId = $0', SYNC_STORE_ID).addListener(handleProductsChange);
   } catch (error: unknown) {
