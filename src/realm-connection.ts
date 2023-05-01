@@ -1,4 +1,4 @@
-import Realm, { App, ClientResetMode, Collection, CollectionChangeSet, ConnectionState } from 'realm';
+import Realm, { App, ClientResetMode, Collection, CollectionChangeSet, ConnectionState, ProgressDirection } from 'realm';
 import { SYNC_STORE_ID } from './atlas-app-services/config';
 import { AtlasApp } from './atlas-app-services/getAtlasApp';
 import { getAccessToken } from './auth0.provider';
@@ -10,6 +10,7 @@ let currentUser: Realm.User | null;
 let originalAccessToken: string | null = null;
 let realm: Realm | null;
 let connectionNotificationAdded = false;
+let progressNotificationAdded = false;
 
 // Exported for use by `./realm-query.js`
 export const getRealm = (): Realm => {
@@ -48,16 +49,25 @@ const handleConnectionChange = (newState: ConnectionState, oldState: ConnectionS
   }
 };
 
+const handleProgressChange = (transferred: number, transferable: number) => {
+  Logger.info(`${transferred} bytes has been transferred`);
+  Logger.info(
+    `There are ${transferable} total transferable bytes, including the ones that have already been transferred`
+  );
+}
+
+
+
 const handleSyncError = async (session: App.Sync.Session, error: any) => {
-  Logger.info(`Session: state ${session.state}`);
+  Logger.info(`Session: state ${session.state} on Device ID (${currentUser?.deviceId}`);
   // For error codes see: https://github.com/realm/realm-core/blob/master/doc/protocol.md#error-codes
   // * Examples:
   //   * 100 (Connection closed, no error)
   //   * 202 (Access token expired)
   if (error.code >= 100 && error.code < 200) {
-    Logger.error(`Connection level and protocol error: ${error.message}. ${JSON.stringify(error)}`);
+    Logger.error(`Connection level and protocol error: ${error.message}. ${JSON.stringify(error)} on Device ID (${currentUser?.deviceId})`);
   } else if (error.code >= 200 && error.code < 300) {
-    Logger.error(`Session level error: ${error.message}. ${JSON.stringify(error)}`);
+    Logger.error(`Session level error: ${error.message}. ${JSON.stringify(error)}  on Device ID (${currentUser?.deviceId})`);
     /*  
         Refresh token can be updated for a maximum expiration time period of around 180days. Refer below
         https://www.mongodb.com/docs/atlas/app-services/users/sessions/#configure-refresh-token-expiration
@@ -65,12 +75,12 @@ const handleSyncError = async (session: App.Sync.Session, error: any) => {
         in configuration in realm app services) this reOpenRealm() method will try to relogin to
         application again and open the realm connection without any issues
      */
-    Logger.info(`Reopeing realm as the access and refresh token is expired`);
+    Logger.info(`Reopeing realm on Device ID (${currentUser?.deviceId}) as the access and refresh token are expired `);
     await reOpenRealm();
   }
   // Should not be reachable.
   else {
-    Logger.error(`Unexpected error code: ${error.code}. ${JSON.stringify(error)}`);
+    Logger.error(`Unexpected error code: ${error.code}. ${JSON.stringify(error)} on Device ID (${currentUser?.deviceId})`);
   }
   // Regarding manual client resets. The deprecated `Realm.App.Sync.initiateClientReset`
   // is meant for use only when the `clientReset` property on the sync configuration
@@ -80,6 +90,7 @@ const handleSyncError = async (session: App.Sync.Session, error: any) => {
 
 const reOpenRealm = async () => {
   //Making sure all the listeners and current user is cleared before reopening the realm
+  realm?.syncSession?.removeProgressNotification(handleProgressChange)
   currentUser?.removeAllListeners();
   currentUser = null;
   realm = null;
@@ -102,7 +113,7 @@ const handlePreClientReset = (localRealm: Realm) => {
 const handlePostClientReset = (localRealm: Realm, remoteRealm: Realm) => {
   Logger.info(`localRealm: ${localRealm}`);
   Logger.info(`remoteRealm: ${remoteRealm}`);
-  Logger.info(`Client has been reset.`);
+  Logger.info(`Client has been reset on Device ID (${currentUser?.deviceId})`);
 };
 
 // The collection listener will be invoked when the listener is added and
@@ -119,7 +130,7 @@ export const openRealm = async () => {
       shouldCompact(totalBytes: number, usedBytes: number) {
         Logger.info(`Total Bytes: ${totalBytes}`);
         Logger.info(`Used Bytes: ${usedBytes}`);
-        return true;
+        return false;
       },
       sync: {
         user: currentUser as Realm.User,
@@ -169,6 +180,10 @@ export const openRealm = async () => {
       realm.syncSession?.addConnectionNotification(handleConnectionChange);
       connectionNotificationAdded = true;
     }
+    if (!progressNotificationAdded) {
+      realm.syncSession?.addProgressNotification(ProgressDirection.Download, Realm.ProgressMode.ReportIndefinitely, handleProgressChange);
+      progressNotificationAdded = true;
+    }
     realm.objects(ProductSchema.name).filtered('storeId = $0', SYNC_STORE_ID).addListener(handleProductsChange);
   } catch (error: unknown) {
     if (error instanceof Error) {
@@ -216,19 +231,18 @@ const handleUserEventChange = () => {
       // @ts-expect-error
       case "LoggedIn": // Bug to be fixed: Literal is documented as 'active'
         Logger.info(`User (id: ${currentUser.id}) has been authenticated.`);
-        break;
       // case UserState.LoggedOut:
       // @ts-expect-error
       case 'LoggedOut': // Bug to be fixed: Literal is documented as 'logged-out'
         Logger.info(`User (id: ${currentUser.id}) has been logged out.`);
         resetUser();
-        break;
+        // break;
       // case UserState.Removed:
       // @ts-expect-error
       case 'Removed': // Bug to be fixed: Literal is documented as 'removed'
         Logger.info(`User (id: ${currentUser.id}) has been removed from the app.`);
         resetUser();
-        break;
+        // break;
       default:
         // Should not be reachable.
         break;
