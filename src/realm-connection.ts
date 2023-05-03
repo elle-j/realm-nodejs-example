@@ -1,9 +1,10 @@
 import Realm, { App, ClientResetMode, Collection, CollectionChangeSet, ConnectionState, ProgressDirection } from 'realm';
-import { SYNC_STORE_ID } from './atlas-app-services/config';
+import { CONNECT_OFFLINE, DEFAULT_SYNC_REALM_PATH, RESTORE_REALM_PATH, SYNC_STORE_ID } from './atlas-app-services/config';
 import { AtlasApp } from './atlas-app-services/getAtlasApp';
 import { getAccessToken } from './auth0.provider';
 import { Logger } from './logger';
 import { KioskSchema, ProductSchema, StoreSchema } from './models';
+
 
 let app: Realm.App = new AtlasApp().app;
 let currentUser: Realm.User | null;
@@ -123,15 +124,21 @@ const handleProductsChange = (products: Collection<object>, changes: CollectionC
   Logger.info(`Products changed. ${JSON.stringify(products)}`);
 };
 
-export const openRealm = async () => {
-  try {
-    const config: Realm.Configuration = {
-      schema: [StoreSchema, KioskSchema, ProductSchema],
-      shouldCompact(totalBytes: number, usedBytes: number) {
-        Logger.info(`Total Bytes: ${totalBytes}`);
-        Logger.info(`Used Bytes: ${usedBytes}`);
-        return false;
-      },
+
+const getRealmConfig = (): Realm.Configuration => {
+  const schemas: Realm.ObjectSchema[] = [StoreSchema, KioskSchema, ProductSchema];
+
+  if (CONNECT_OFFLINE) {
+  // Connect to offline realm without sync mode by opening a backed up realm file in local realm mode
+    return {
+      path: RESTORE_REALM_PATH,
+      schema: schemas
+    }
+  } else {
+    // Connecting via sync mode
+    return {
+      path: DEFAULT_SYNC_REALM_PATH,
+      schema: schemas,
       sync: {
         user: currentUser as Realm.User,
         // To read more about flexible sync and subscriptions, see:
@@ -168,8 +175,15 @@ export const openRealm = async () => {
         },
         // The old property for the error callback was called `error`, please use `onError`.
         onError: handleSyncError,
-      },
-    };
+      }
+    }
+  }
+}
+
+export const openRealm = async () => {
+  try {
+    // Get realm config, which will decide wheather to connect via offline mode or via synced mode
+    const config: Realm.Configuration = getRealmConfig();
     Logger.info('Opening realm...');
     realm = new Realm(config);
     Logger.info('Realm opened.');
@@ -247,26 +261,6 @@ const handleUserEventChange = () => {
         // Should not be reachable.
         break;
     }
-  }
-};
-
-export const register = async (email: string, password: string): Promise<boolean> => {
-  // For this simplified example, the app is configured to automatically confirm users.
-  try {
-    Logger.info('Registering...');
-    await app.emailPasswordAuth.registerUser({ email, password });
-
-    Logger.info('Registered.');
-    return true;
-  } catch (error: unknown) {
-    if (error instanceof Error) {
-      if (error?.message?.includes('name already in use')) {
-        Logger.info('Already registered.');
-        return true;
-      }
-      Logger.error(`Error registering: ${error.message}`);
-    }
-    return false;
   }
 };
 
