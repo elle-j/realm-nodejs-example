@@ -44,7 +44,7 @@ export class Main {
 
       (async _backup => {
         while (true) {
-          let BACKUP_REALM_FILE_PATH = `${BACKUP_REALM_PATH}/realm-${APP_VERSION}-${new Date().getMilliseconds()}-${new Date().getDay()}-${new Date().getHours()}.realm`
+          let BACKUP_REALM_FILE_PATH = `${BACKUP_REALM_PATH}/realm-${APP_VERSION}-${new Date().getMonth()}-${new Date().getDay()}-${new Date().getHours()}.realm`
           Logger.info(`Backing Up Realm Database in path: ${BACKUP_REALM_FILE_PATH}`);
           const config: Realm.Configuration = {
             path: BACKUP_REALM_FILE_PATH
