@@ -32,9 +32,12 @@ export const DEFAULT_SYNC_REALM_PATH = path.join(__dirname, `${DATABASE_FOLDER_R
 // Path and name of the realm file during the backup
 export let BACKUP_REALM_PATH: string = path.join(__dirname, `${BACKUPS_DATABASE_FOLDER_RELATIVE_PATH}`)
 
-// This could come from other service. 
-const RESTORE_REALM_FILE_NAME = `realm-1.0.0-971-22-3-2-4.realm`;
-export const RESTORE_REALM_PATH = path.join(__dirname, `${BACKUPS_DATABASE_FOLDER_RELATIVE_PATH}/${RESTORE_REALM_FILE_NAME}`)
+// Path where all local realm backup files are present 
+export const RESTORE_REALM_PATH = path.join(__dirname, `${BACKUPS_DATABASE_FOLDER_RELATIVE_PATH}}`)
+
+// Say if four backup files are present in backup folder, if `USE_LAST_N_VERSION_OF_REALM_FILE` is set as 2,
+// this will pick the second last recent file from the local database
+export const USE_LAST_N_VERSION_OF_REALM_FILE = 2;
 
 // Define the number of local realm backup files to be stored in the backups folder.
 // If its set to 5, the maximum number of available realm backup files will not be more than 5 and the older 

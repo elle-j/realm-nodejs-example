@@ -1,6 +1,7 @@
 import Realm, { App, ClientResetMode, Collection, CollectionChangeSet, ConnectionState, ProgressDirection } from 'realm';
-import { CONNECT_OFFLINE, DEFAULT_SYNC_REALM_PATH, RESTORE_REALM_PATH, SYNC_STORE_ID } from './atlas-app-services/config';
+import { CONNECT_OFFLINE, DEFAULT_SYNC_REALM_PATH, RESTORE_REALM_PATH, SYNC_STORE_ID, USE_LAST_N_VERSION_OF_REALM_FILE } from './atlas-app-services/config';
 import { AtlasApp } from './atlas-app-services/getAtlasApp';
+import { getRealmFiles } from './atlas-app-services/utils';
 import { getAccessToken } from './auth0.provider';
 import { Logger } from './logger';
 import { KioskSchema, ProductSchema, StoreSchema } from './models';
@@ -125,13 +126,31 @@ const handleProductsChange = (products: Collection<object>, changes: CollectionC
 };
 
 
+const getRestoreRealmFilePath = (): string => {
+  const localRealmFileNames: string[] = getRealmFiles();
+  const numberOfLocalRealmFilesAvailable: number = localRealmFileNames?.length;
+  let realmFileToUse: string = '';
+  // USE_LAST_N_VERSION_OF_REALM_FILE - supposed to come from listener service
+  if (USE_LAST_N_VERSION_OF_REALM_FILE > 0 && USE_LAST_N_VERSION_OF_REALM_FILE <= numberOfLocalRealmFilesAvailable) {
+    // finding reverse index and set the filename
+    realmFileToUse = localRealmFileNames[numberOfLocalRealmFilesAvailable - (USE_LAST_N_VERSION_OF_REALM_FILE - 1) - 1];
+  } else {
+    // Fallback to latest file in case of unrelated values rather then the specified version.
+    // Eg: If `USE_LAST_N_VERSION_OF_REALM_FILE` is 0 or any string or etc, the last recent backup file 
+    // will be opened in offline mode
+    realmFileToUse = localRealmFileNames[numberOfLocalRealmFilesAvailable - 1]
+  }
+  return `${RESTORE_REALM_PATH}/${realmFileToUse}`;
+}
+
+
 const getRealmConfig = (): Realm.Configuration => {
   const schemas: Realm.ObjectSchema[] = [StoreSchema, KioskSchema, ProductSchema];
 
   if (CONNECT_OFFLINE) {
-  // Connect to offline realm without sync mode by opening a backed up realm file in local realm mode
+    // Connect to offline realm without sync mode by opening a backed up realm file in local realm mode
     return {
-      path: RESTORE_REALM_PATH,
+      path: getRestoreRealmFilePath(),
       schema: schemas
     }
   } else {
@@ -250,13 +269,13 @@ const handleUserEventChange = () => {
       case 'LoggedOut': // Bug to be fixed: Literal is documented as 'logged-out'
         Logger.info(`User (id: ${currentUser.id}) has been logged out.`);
         resetUser();
-        // break;
+      // break;
       // case UserState.Removed:
       // @ts-expect-error
       case 'Removed': // Bug to be fixed: Literal is documented as 'removed'
         Logger.info(`User (id: ${currentUser.id}) has been removed from the app.`);
         resetUser();
-        // break;
+      // break;
       default:
         // Should not be reachable.
         break;
