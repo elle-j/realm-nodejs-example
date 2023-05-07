@@ -23,5 +23,5 @@ export function pruneOldNRealmFiles(): void {
 // This way, it avoids the .lock and other files
 function getRealmFiles() {
     const files = fs.readdirSync(path.resolve(__dirname, `${BACKUPS_DATABASE_FOLDER_RELATIVE_PATH}/`));
-    return files.filter(el => path.extname(el) === '.realm')
+    return files.filter(el => path.extname(el) === '.realm').sort();
 }

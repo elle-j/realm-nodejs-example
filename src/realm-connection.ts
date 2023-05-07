@@ -27,11 +27,11 @@ const handleConnectionChange = (newState: ConnectionState, oldState: ConnectionS
   const failedReconnecting = oldState === ConnectionState.Connecting && newState === ConnectionState.Disconnected;
 
   if (connecting) {
-    Logger.info(` User ID: ${currentUser?.id} & Device ID: ${currentUser?.deviceId} is Connecting...`);
+    Logger.info(`Connecting...`);
   } else if (connected) {
-    Logger.info(` User ID: ${currentUser?.id} & Device ID: ${currentUser?.deviceId} is Connected.`);
+    Logger.info(`Connected.`);
   } else if (disconnected) {
-    Logger.info(` User ID: ${currentUser?.id} & Device ID: ${currentUser?.deviceId} is Disconnected.`);
+    Logger.info(`Disconnected.`);
 
     // Currently, the `newState` is `ConnectionState.Disconnected`. Automatic retries will
     // start and the state will alternate in the following way for the period where there
@@ -46,7 +46,7 @@ const handleConnectionChange = (newState: ConnectionState, oldState: ConnectionS
     // listener is invoked.
   } /* failedReconnecting */
   else {
-    Logger.info(` User ID: ${currentUser?.id} & Device ID: ${currentUser?.deviceId} failed to Reconnect(${failedReconnecting})`);
+    Logger.info(`Failed to Reconnect(${failedReconnecting})`);
   }
 };
 
