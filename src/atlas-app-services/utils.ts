@@ -22,6 +22,8 @@ export function pruneOldNRealmFiles(): void {
 // Get files from the backup directory, where the files extention is .realm.
 // This way, it avoids the .lock and other files
 export function getRealmFiles() {
+    const regexToMatch0to100 = new RegExp(/(0|[1-9][0-9]?|100)-(0|[1-9][0-9]?|100)-(0|[1-9][0-9]?|100)/);
     const files = fs.readdirSync(path.resolve(__dirname, `${BACKUPS_DATABASE_FOLDER_RELATIVE_PATH}/`));
-    return files.filter(el => path.extname(el) === '.realm').sort();
+    return files.filter(el => path.extname(el) === '.realm').sort((a: any, b: any) => a.match(regexToMatch0to100).pop().replace('-', '') - b.match(regexToMatch0to100).pop().replace('-', ''));
 }
+
