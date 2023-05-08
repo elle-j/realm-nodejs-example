@@ -33,7 +33,7 @@ export const DEFAULT_SYNC_REALM_PATH = path.join(__dirname, `${DATABASE_FOLDER_R
 export let BACKUP_REALM_PATH: string = path.join(__dirname, `${BACKUPS_DATABASE_FOLDER_RELATIVE_PATH}`)
 
 // Path where all local realm backup files are present 
-export const RESTORE_REALM_PATH = path.join(__dirname, `${BACKUPS_DATABASE_FOLDER_RELATIVE_PATH}}`)
+export const RESTORE_REALM_PATH = path.join(__dirname, `${BACKUPS_DATABASE_FOLDER_RELATIVE_PATH}`)
 
 // Say if four backup files are present in backup folder, if `USE_LAST_N_VERSION_OF_REALM_FILE` is set as 2,
 // this will pick the second last recent file from the local database
