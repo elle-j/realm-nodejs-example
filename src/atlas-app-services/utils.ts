@@ -24,6 +24,6 @@ export function pruneOldNRealmFiles(): void {
 export function getRealmFiles() {
     const regexToMatch0to100 = new RegExp(/(0|[1-9][0-9]?|100)-(0|[1-9][0-9]?|100)-(0|[1-9][0-9]?|100)/);
     const files = fs.readdirSync(path.resolve(__dirname, `${BACKUPS_DATABASE_FOLDER_RELATIVE_PATH}/`));
-    return files.filter(el => path.extname(el) === '.realm').sort((a: any, b: any) => a.match(regexToMatch0to100).pop().replace('-', '') - b.match(regexToMatch0to100).pop().replace('-', ''));
+    return files.filter(el => path.extname(el) === '.realm').sort((a: any, b: any) => a.match(regexToMatch0to100)[0].replace(/-/g, '') - b.match(regexToMatch0to100)[0].replace(/-/g, ''));
 }
 
