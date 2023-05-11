@@ -1,5 +1,5 @@
 import { APP_VERSION, BACKUP_REALM_PATH, CONNECT_OFFLINE, DB_BACKUP_FREQUENCY_IN_HOURS, DB_SEED } from './atlas-app-services/config';
-import { pruneOldNRealmFiles } from './atlas-app-services/utils';
+import { addPrefixZero, pruneOldNRealmFiles } from './atlas-app-services/utils';
 import { getAccessToken } from './auth0.provider';
 import { Logger } from './logger';
 import { getRealm, logIn, openRealm } from './realm-connection';
@@ -16,7 +16,6 @@ export class Main {
   }
 
   public main = async () => {
-
     const accessToken = await getAccessToken();
 
     let success: Realm.User | boolean = await logIn(accessToken);
@@ -40,14 +39,16 @@ export class Main {
     regular backups
     */
     if (!CONNECT_OFFLINE) {
-      const wait = (seconds: number) => new Promise(r => setTimeout(r, (seconds * 1000)));
+      const wait = (seconds: number) => new Promise(r => setTimeout(r, seconds * 1000));
 
       (async _backup => {
         while (true) {
-          let BACKUP_REALM_FILE_PATH = `${BACKUP_REALM_PATH}/realm-${APP_VERSION}-D${new Date().getMonth()}-${new Date().getDate()}-${new Date().getHours()}.realm`
+          let BACKUP_REALM_FILE_PATH = `${BACKUP_REALM_PATH}/realm-${APP_VERSION}-D${addPrefixZero(new Date().getMonth())}-${addPrefixZero(
+            new Date().getDate()
+          )}-${addPrefixZero(new Date().getHours())}.realm`;
           Logger.info(`Backing Up Realm Database in path: ${BACKUP_REALM_FILE_PATH}`);
           const config: Realm.Configuration = {
-            path: BACKUP_REALM_FILE_PATH
+            path: BACKUP_REALM_FILE_PATH,
           };
           const realm = getRealm();
           // Write the realm copy to a specific path
