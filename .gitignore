@@ -1,5 +1,8 @@
-# dependencies
-/node_modules
+# TS-generated output files.
+dist/
 
-# realm
-/mongodb-realm
+# Dependencies.
+node_modules/
+
+# Local MongoDB Realm database.
+mongodb-realm/
